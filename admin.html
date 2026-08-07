@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>☁ 아카이브 GitHub 원클릭 통합 관리기</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: 'Apple SD Gothic Neo', sans-serif; background: #f0f4f8; padding: 15px; max-width: 900px; margin: 0 auto; color: #333; }
+    h2 { text-align: center; color: #555682; margin-bottom: 20px; font-size: 20px; }
+    
+    .card { background: white; border-radius: 8px; padding: 15px; margin-bottom: 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); }
+    .card h3 { margin-top: 0; color: #5481C0; font-size: 15px; border-bottom: 2px solid #F0F4F8; padding-bottom: 8px; }
+    
+    label { display: block; font-size: 12px; font-weight: bold; color: #666; margin: 8px 0 4px; }
+    input[type="text"], input[type="password"], textarea { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 12px; font-family: inherit; }
+    textarea { height: 100px; resize: vertical; }
+    
+    .row { display: flex; gap: 10px; flex-wrap: wrap; }
+    .col { flex: 1; min-width: 200px; }
+    
+    button { background: #A8CAE0; color: white; border: none; padding: 10px 15px; border-radius: 5px; font-weight: bold; cursor: pointer; font-size: 13px; transition: 0.2s; }
+    button:hover { background: #8bb3cb; }
+    .btn-save-gh { background: #6CB083; width: 100%; padding: 14px; font-size: 16px; margin-top: 10px; }
+    .btn-save-gh:hover { background: #58966e; }
+    .btn-danger { background: #E7A1A1; }
+    .btn-danger:hover { background: #d68787; }
+    
+    /* 이모티콘 팔레트 */
+    .emoji-palette { display: flex; flex-wrap: wrap; gap: 8px; background: #fafafa; border: 1px solid #eee; padding: 10px; border-radius: 6px; max-height: 120px; overflow-y: auto; margin-top: 6px; }
+    .emoji-item { width: 32px; height: 32px; border: 1px solid #ddd; border-radius: 4px; background: white; display: flex; align-items: center; justify-content: center; cursor: pointer; position: relative; }
+    .emoji-item:hover { border-color: #5481C0; background: #eef5ff; }
+    .emoji-item img { max-width: 24px; max-height: 24px; }
+    .emoji-del { position: absolute; top: -5px; right: -5px; background: #ff4d4d; color: white; border-radius: 50%; width: 14px; height: 14px; font-size: 9px; display: none; align-items: center; justify-content: center; }
+    .emoji-item:hover .emoji-del { display: flex; }
+    
+    /* 리스트 영역 및 모바일 대응 수정 */
+    .item-list { max-height: 250px; overflow-y: auto; border: 1px solid #eee; border-radius: 4px; padding: 5px; }
+    .item-row { display: flex; justify-content: space-between; align-items: center; padding: 8px; border-bottom: 1px solid #f0f0f0; font-size: 12px; gap: 8px; }
+    .item-row:last-child { border-bottom: none; }
+    .item-info { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .item-actions { display: flex; gap: 4px; flex-shrink: 0; }
+    .btn-sm { padding: 4px 8px; font-size: 11px; white-space: nowrap; }
+
+    .tab-btns { display: flex; gap: 5px; margin-bottom: 15px; }
+    .tab-btn { flex: 1; background: #e0e0e0; color: #555; }
+    .tab-btn.active { background: #5481C0; color: white; }
+    
+    .status-badge { font-size: 11px; padding: 4px 8px; border-radius: 4px; display: inline-block; margin-left: 5px; }
+    .status-ok { background: #E2F0D9; color: #385723; }
+  </style>
+</head>
+<body>
+
+  <h2>🌸 아카이브 GitHub 원클릭 통합 관리기</h2>
+
+  <!-- 1. GitHub API 연동 설정 -->
+  <div class="card">
+    <h3>🔑 1. GitHub API 연동 설정 (최초 1회만 입력)</h3>
+    <div class="row">
+      <div class="col">
+        <label>GitHub 유저명 (Username)</label>
+        <input type="text" id="ghOwner" value="okayletsgo555">
+      </div>
+      <div class="col">
+        <label>저장소 이름 (Repository)</label>
+        <input type="text" id="ghRepo" value="archive">
+      </div>
+    </div>
+    <div class="row">
+      <div class="col">
+        <label>JSON 파일 경로</label>
+        <input type="text" id="ghPath" value="posts.json">
+      </div>
+      <div class="col">
+        <label>Personal Access Token (PAT)</label>
+        <input type="password" id="ghToken" placeholder="ghp_로 시작하는 토큰 입력">
+      </div>
+    </div>
+    <div style="margin-top: 10px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+      <button onclick="saveApiConfig()">💾 설정 저장하기</button>
+      <button style="background: #888;" onclick="fetchFromGitHub()">🔄 GitHub 데이터 불러오기</button>
+      <span id="configStatus"></span>
+    </div>
+  </div>
+
+  <!-- 2. 이모티콘 팔레트 -->
+  <div class="card">
+    <h3>🎨 2. 이모티콘 팔레트 (클릭시 선택 입력창에 <img> 자동 삽입)</h3>
+    <div class="row">
+      <div class="col">
+        <input type="text" id="newEmojiUrl" placeholder="새 GIF/이미지 주소(URL) 입력">
+      </div>
+      <button onclick="addEmojiToPalette()">➕ 이모티콘 등록</button>
+    </div>
+    <div class="emoji-palette" id="emojiPalette"></div>
+  </div>
+
+  <!-- 3. 데이터 작성 폼 -->
+  <div class="card">
+    <div class="tab-btns">
+      <button class="tab-btn active" id="tabPostBtn" onclick="switchTab('post')">📝 게시글(Posts) 작성</button>
+      <button class="tab-btn" id="tabDiaryBtn" onclick="switchTab('diary')">📅 다이어리(Diary) 작성</button>
+    </div>
+
+    <!-- 게시글 입력 -->
+    <div id="postForm">
+      <div class="row">
+        <div class="col">
+          <label>제목</label>
+          <input type="text" id="postTitle" onfocus="setActiveInput(this)" placeholder="게시글 제목">
+        </div>
+        <div class="col">
+          <label>카테고리 (콤마 구분)</label>
+          <input type="text" id="postCategory" placeholder="예: heart, wara, blue">
+        </div>
+      </div>
+      <label>이동 URL (선택사항)</label>
+      <input type="text" id="postUrl" placeholder="https://...">
+      <label>본문 내용</label>
+      <textarea id="postContent" onfocus="setActiveInput(this)" placeholder="본문 내용 입력"></textarea>
+      <button style="margin-top: 10px; width: 100%;" onclick="savePost()">💾 항목 추가/수정 (목록에 반영)</button>
+    </div>
+
+    <!-- 다이어리 입력 -->
+    <div id="diaryForm" style="display: none;">
+      <div class="row">
+        <div class="col">
+          <label>날짜 (예: 2014年 04月 15日)</label>
+          <input type="text" id="diaryDate" placeholder="2014年 04月 15日">
+        </div>
+        <div class="col">
+          <label>다이어리 제목 (선택사항)</label>
+          <input type="text" id="diaryTitle" onfocus="setActiveInput(this)" placeholder="예: 오사카 원정 출발">
+        </div>
+      </div>
+      <label>달력 표시 이모지 / 태그</label>
+      <input type="text" id="diaryEmoji" onfocus="setActiveInput(this)" placeholder="🌸 또는 <img ...>">
+      <label>다이어리 본문</label>
+      <textarea id="diaryContent" onfocus="setActiveInput(this)" placeholder="다이어리 내용 입력"></textarea>
+      <button style="margin-top: 10px; width: 100%;" onclick="saveDiary()">💾 항목 추가/수정 (목록에 반영)</button>
+    </div>
+  </div>
+
+  <!-- 4. 목록 관리 및 원클릭 GitHub 저장 -->
+  <div class="card">
+    <h3>📋 3. 데이터 목록 확인 & 원클릭 배포</h3>
+    <div class="row">
+      <div class="col">
+        <label><b>게시글 (<span id="postCount">0</span>개)</b></label>
+        <div class="item-list" id="postList"></div>
+      </div>
+      <div class="col">
+        <label><b>다이어리 (<span id="diaryCount">0</span>개)</b></label>
+        <div class="item-list" id="diaryList"></div>
+      </div>
+    </div>
+    <button class="btn-save-gh" onclick="pushToGitHub()">🚀 GitHub에 즉시 업데이트하기 (원클릭 저장)</button>
+  </div>
+
+<script>
+  var postsData = [];
+  var diaryData = {};
+  var currentSha = "";
+  
+  // 기본 이모티콘 목록
+  var defaultEmojis = [
+    "https://i.imgur.com/g3JmCi0.gif",
+    "https://i.imgur.com/Ariwp8I.gif",
+    "https://yokai.crd.co/assets/images/gallery03/58ed5769.gif?v=b4df531c",
+    "https://i.imgur.com/Sp6HITL.gif",
+    "https://mocha.crd.co/assets/images/gallery26/9eb299ea.gif?v=667e73fe",
+    "https://64.media.tumblr.com/b96ad9abbb82b4fb12a8d573567c16bd/tumblr_inline_pgu3d0Bxxm1sr9by4_75sq.png",
+    "https://64.media.tumblr.com/33c876b27aaf39a8e7a6930312ca1ca6/tumblr_inline_pgu3d03F9V1sr9by4_75sq.png",
+    "https://64.media.tumblr.com/17339896fd9646f3c020d2f9282cbdd0/tumblr_inline_pgu3d1tM1F1sr9by4_75sq.png",
+    "https://mocha.crd.co/assets/images/gallery03/94706759.gif?v=667e73fe",
+"https://mocha.crd.co/assets/images/gallery03/5c4500b4.gif?v=667e73fe",
+"https://mocha.crd.co/assets/images/gallery03/9f3a7045.gif?v=667e73fe",
+"https://mocha.crd.co/assets/images/gallery03/3471443d.gif?v=667e73fe",
+"https://mocha.crd.co/assets/images/gallery03/a0e61330.gif?v=667e73fe",
+"https://mocha.crd.co/assets/images/gallery03/b08040e7.gif?v=667e73fe",
+"https://mocha.crd.co/assets/images/gallery03/bc88b706.png?v=667e73fe",
+"https://mocha.crd.co/assets/images/gallery03/53441411.png?v=667e73fe",
+"https://mocha.crd.co/assets/images/gallery20/f26ad644.gif?v=667e73fe",
+"https://mocha.crd.co/assets/images/gallery04/2ce58d2e.gif?v=667e73fe",
+"https://mocha.crd.co/assets/images/gallery04/1e1436ee.gif?v=667e73fe",
+"https://mocha.crd.co/assets/images/gallery24/90c9271b.gif?v=667e73fe",
+"https://mocha.crd.co/assets/images/gallery17/882c3fa6.gif?v=667e73fe",
+"https://mocha.crd.co/assets/images/gallery17/0e05e96f.gif?v=667e73fe",
+"https://mocha.crd.co/assets/images/gallery21/b7a9458d.gif?v=667e73fe",
+"https://mocha.crd.co/assets/images/gallery02/457b8b1c.gif?v=667e73fe",
+"https://mocha.crd.co/assets/images/gallery02/52a43255.gif?v=667e73fe",
+"https://mocha.crd.co/assets/images/gallery02/e580f021.gif?v=667e73fe",
+"https://mocha.crd.co/assets/images/gallery02/8c9725e6.gif?v=667e73fe",
+"https://mocha.crd.co/assets/images/gallery02/33d10438.gif?v=667e73fe",
+"https://mocha.crd.co/assets/images/gallery02/6acd3090.gif?v=667e73fe",
+"https://mocha.crd.co/assets/images/gallery23/aa1ce6dc.gif?v=667e73fe",
+"https://mocha.crd.co/assets/images/gallery23/300b87b4.png?v=667e73fe",
+"https://mocha.crd.co/assets/images/gallery23/9e15ee09.gif?v=667e73fe",
+"https://mocha.crd.co/assets/images/gallery23/a56de0a7.gif?v=667e73fe",
+"https://i.imgur.com/JArUfPy.gif",
+"https://i.imgur.com/alppYT1.gif",
+"https://i.imgur.com/LIaXAWk.gif",
+"https://i.imgur.com/QaGYj7b.gif",
+"https://i.imgur.com/UJVUeER.gif",
+"https://i.imgur.com/6OJnmDb.gif",
+"https://i.imgur.com/WNVwnek.gif",
+"https://i.imgur.com/LAukkS5.gif",
+"https://i.imgur.com/phL5n3y.gif",
+"https://i.imgur.com/yFiGIUj.gif",
+"https://i.imgur.com/bjCtDTC.gif",
+"https://i.imgur.com/Wnzhhhl.gif",
+"https://i.imgur.com/IYTY47k.gif",
+"https://i.imgur.com/f95yKqD.gif",
+",https://i.imgur.com/SMOjuoK.gif",
+"https://i.imgur.com/2PL4rkO.gif",
+"https://i.imgur.com/oAEHFuj.gif",
+"https://i.imgur.com/SlaCTja.gif",
+"https://i.imgur.com/XmbepwG.gif",
+"https://i.imgur.com/2bQqFN2.gif",
+"https://i.imgur.com/qCpkTEg.gif",
+"https://i.imgur.com/zymSvuj.gif",
+"https://i.imgur.com/IzHzdVD.gif",
+"https://i.imgur.com/9JRTuIG.gif",
+"https://i.imgur.com/9mlZLX3.gif",
+"https://i.imgur.com/m0Vcoqe.gif",
+"https://i.imgur.com/8uNbZTq.gif",
+"https://i.imgur.com/rrNe1EQ.gif",
+"https://i.imgur.com/rIgpRUC.gif",
+"https://i.imgur.com/3Kjl0EQ.gif",
+"https://i.imgur.com/gfnwwet.gif",
+"https://i.imgur.com/OX8FUyR.gif",
+"https://i.imgur.com/gDPbkBC.gif",
+"https://i.imgur.com/MTzfMeK.gif",
+"https://i.imgur.com/bxlxnj9.gif",
+"https://i.imgur.com/0tVgJ9B.gif",
+"https://i.imgur.com/c15Fx3x.gif",
+"https://i.imgur.com/QEVepRz.gif",
+"https://i.imgur.com/hA8AFbB.gif",
+"https://i.imgur.com/HuAZPNC.gif",
+"https://i.imgur.com/u0X82vZ.gif",
+"https://i.imgur.com/D6rJY6n.gif",
+"https://i.imgur.com/vWw0Q0q.gif",
+"https://i.imgur.com/XcUJAST.gif",
+"https://i.imgur.com/xSWh9pi.gif",
+"https://i.imgur.com/yoVPQnZ.gif",
+"https://i.imgur.com/qyDkStE.gif",
+"https://i.imgur.com/3S3rWPS.gif",
+"https://i.imgur.com/btuz7QW.gif",
+"https://i.imgur.com/ENZYFw5.gif",
+"https://i.imgur.com/ZnLGjfb.gif",
+"https://i.imgur.com/OOt8AxD.gif",
+"https://i.imgur.com/Xq773u8.gif",
+"https://i.imgur.com/wMnfA5h.gif",
+"https://i.imgur.com/NkCvA3V.gif",
+"https://i.imgur.com/QgrNNSU.gif",
+"https://i.imgur.com/8flNSbh.gif",
+"https://i.imgur.com/niiyB4r.gif",
+"https://i.imgur.com/0N9ETVb.gif",
+"https://i.imgur.com/P44VgV0.gif",
+"https://i.imgur.com/Ywz7tiE.gif",
+"https://i.imgur.com/ML2l0Mo.gif",
+"https://i.imgur.com/8SgziAE.gif",
+"https://i.imgur.com/Y7YkqLm.gif",
+"https://mocha.crd.co/assets/images/gallery03/4ff3b664.gif?v=667e73fe",
+"https://i.imgur.com/xMSLf27.gif",
+"https://i.imgur.com/Zo2sZ2g.gif",
+"https://i.imgur.com/xTG0g4A.gif",
+"https://i.imgur.com/P2d5Aju.gif",
+"https://i.imgur.com/Q9xczEP.gif",
+"https://i.imgur.com/nSpJCSM.gif",
+"https://i.imgur.com/fSWjCjH.gif",
+"https://i.imgur.com/3BnA3gI.gif",
+"https://i.imgur.com/0HrgWzK.gif",
+"https://i.imgur.com/ssQHzwX.gif",
+"https://i.imgur.com/OLfbsvN.gif",
+"https://i.imgur.com/POeRgVs.gif",
+"https://i.imgur.com/fq9sK03.gif",
+"https://i.imgur.com/eKxCnci.gif",
+"https://i.imgur.com/i5dgJWB.gif",
+"https://i.imgur.com/By35Nqv.gif",
+"https://i.imgur.com/K2Xcqvu.gif",
+"https://i.imgur.com/yilpIlt.gif",
+"https://i.imgur.com/4QGg7QE.gif",
+"https://i.imgur.com/1A0ascl.gif",
+"https://i.imgur.com/S89ceBR.gif",
+"https://i.imgur.com/bHN3mnY.gif",
+"https://i.imgur.com/m7ueiqD.gif",
+"https://i.imgur.com/6j6ZQMj.gif",
+"https://i.imgur.com/GjU4wgV.gif",
+"https://i.imgur.com/UPM1bWV.gif",
+"https://i.imgur.com/yroB26i.gif",
+"https://i.imgur.com/Oekhx3h.gif",
+"https://i.imgur.com/yWXz4jC.gif",
+"https://i.imgur.com/95PgTkp.gif",
+"https://i.imgur.com/5Be681b.gif",
+"https://i.imgur.com/zcFh0SK.gif",
+"https://i.imgur.com/DYHD2el.gif",
+"https://i.imgur.com/v61s5KF.gif",
+"https://i.imgur.com/JlPTTpE.gif",
+"https://i.imgur.com/oZ8MJDl.gif",
+"https://i.imgur.com/qXzlwNC.gif",
+"https://i.imgur.com/4Snhe7Q.gif",
+"https://i.imgur.com/Vho5TMv.jpg",
+"https://i.imgur.com/oEYba29.gif",
+"https://i.imgur.com/DzCuYFu.gif",
+"https://i.imgur.com/QQDFaWj.gif",
+"https://i.imgur.com/dIAOe5j.gif",
+"https://i.imgur.com/RjJ3fHy.gif",
+"https://i.imgur.com/fVPBzCR.gif",
+"https://i.imgur.com/jwwNzIJ.gif",
+"https://i.imgur.com/zJHjwrD.gif",
+"https://i.imgur.com/q4AN64Z.gif",
+"https://i.imgur.com/NMEZj77.gif",
+"https://i.imgur.com/jwwNzIJ.gif",
+"https://i.imgur.com/GFhvPfc.gif",
+"https://i.imgur.com/j8KifXe.gif",
+"https://i.imgur.com/CU2zENl.gif",
+"https://i.imgur.com/T9ScP6I.gif",
+"https://i.imgur.com/9lTg42D.gif",
+"http://i11.photobucket.com/albums/a168/evelynregly/minigifs/minilua.gif",
+"http://i11.photobucket.com/albums/a168/evelynregly/minigifs/mini115.gif",
+"http://i11.photobucket.com/albums/a168/evelynregly/minigifs/ichigo.gif",
+"https://64.media.tumblr.com/tumblr_lkl7439kSD1qfamg6.gif",
+"https://64.media.tumblr.com/tumblr_lkl647v8OI1qfamg6.gif",
+"https://64.media.tumblr.com/3b6be61e54d13f50c5a57d9738ebde92/tumblr_inline_mt19bkRcsz1qz4rgp.gif",
+"https://64.media.tumblr.com/86e2ad53811f95fb8ba16d52a7c4fac6/tumblr_inline_mt19b8vRxa1qz4rgp.gif",
+"http://i11.photobucket.com/albums/a168/evelynregly/minigifs/042102_1227_394_prv.gif",
+"https://64.media.tumblr.com/tumblr_lkl5s8Ay6F1qfamg6.gif",
+"https://64.media.tumblr.com/tumblr_lkl76fB0f41qfamg6.png",
+"http://i12.photobucket.com/albums/a213/superkate_2468/favicon-2ico-1.gif",
+"http://i122.photobucket.com/albums/o260/mhilka/minigifs/23e4534a11.gif",
+"https://64.media.tumblr.com/tumblr_lu12w8iEsY1r2nnw5.gif",
+"https://64.media.tumblr.com/tumblr_ltuzymVssF1r2nnw5.gif",
+"http://img.photobucket.com/albums/v252/shaquanda/dumpitydump/pixelwixel/208.gif",
+"http://i1207.photobucket.com/albums/bb478/xxlight/pixels/th_068.gif",
+"http://i11.photobucket.com/albums/a168/evelynregly/minigifs/minilua.gif",
+"http://i11.photobucket.com/albums/a168/evelynregly/minigifs/gift_red.gif",
+"http://i387.photobucket.com/albums/oo314/paravidatoda/mini-176.gif",
+"http://i387.photobucket.com/albums/oo314/paravidatoda/45.gif",
+"http://i387.photobucket.com/albums/oo314/paravidatoda/div40.gif",
+"http://i387.photobucket.com/albums/oo314/paravidatoda/mini-179.gif",
+"https://yokai.crd.co/assets/images/gallery03/4246c620.gif?v=b4df531c",
+"https://yokai.crd.co/assets/images/gallery22/032eaa60.gif?v=b4df531c",
+"https://yokai.crd.co/assets/images/gallery08/a02a4b96.gif?v=b4df531c",
+"https://64.media.tumblr.com/475b3c14f09745520dc116736f9f0c25/7b3017d70edd26c0-e7/s75x75_c1/a66dbc56b3e661cdeb6a344b0a55caf84fbfb404.gif",
+"https://64.media.tumblr.com/e46bc6c54b6f9b802a6c198409ee2d15/bd2fa1e4691fec39-3f/s75x75_c1/92131452458c1df9a7c3f7f9514359d27582bc7b.gif",
+"https://i.imgur.com/3yRPnBP.gif",
+"https://64.media.tumblr.com/5b35cf9cfc6cd46a62721807b5d51ba9/172f0f97ca817af3-3d/s75x75_c1/58e715cb6129bd56fbd5046fa27b53d4f8570800.gif",
+"https://mypillowfort.net/media5/tumblr_a8f6f3cf78616e370159e53bf2396c05_2b368999_75.gif",
+"https://mypillowfort.net/media5/tumblr_c3ae761030463c4b0d5a8014a1e19a8f_b164b3db_75.gif",
+"https://file.garden/Z4-KIXj5okOfzeyR/STASH/Pixels2/07/tumblr_e0573f51d8145eccfe80550944204aae_b8c72451_75.webp",
+"https://64.media.tumblr.com/04ed66e49b174f6395ebc30796acd8cc/70a7ef0731855602-98/s75x75_c1/df129a65310b7926e69c0c686d7445df708af1b9.gif",
+"https://64.media.tumblr.com/0bd47ace6c57abceffd201629ec13718/9857ce15954efd5f-63/s75x75_c1/13761fdef1d24e4ffb7c4bd05553a2ea61f9ffb8.gif",
+"https://64.media.tumblr.com/e0ad127033d12304a3512a73e63ecd81/14dc58ac4f7a0c3a-27/s75x75_c1/6728b710a325565b870775f3a1ea084cde83e5a7.gif"
+  ];
+  
+  // 저장된 이모티콘 불러오기
+  var savedEmojis = localStorage.getItem('my_emojis');
+  var emojiList = savedEmojis ? JSON.parse(savedEmojis) : defaultEmojis;
+  
+  var activeInput = null;
+  var editingPostIndex = -1;
+
+  window.onload = function() {
+    loadApiConfig();
+    loadEmojiPalette();
+    if (document.getElementById('ghToken').value) {
+      fetchFromGitHub();
+    }
+  };
+
+  function saveApiConfig() {
+    localStorage.setItem('gh_owner', document.getElementById('ghOwner').value.trim());
+    localStorage.setItem('gh_repo', document.getElementById('ghRepo').value.trim());
+    localStorage.setItem('gh_path', document.getElementById('ghPath').value.trim());
+    localStorage.setItem('gh_token', document.getElementById('ghToken').value.trim());
+    document.getElementById('configStatus').innerHTML = '<span class="status-badge status-ok">설정 저장완료!</span>';
+  }
+
+  function loadApiConfig() {
+    document.getElementById('ghOwner').value = localStorage.getItem('gh_owner') || 'okayletsgo555';
+    document.getElementById('ghRepo').value = localStorage.getItem('gh_repo') || 'archive';
+    document.getElementById('ghPath').value = localStorage.getItem('gh_path') || 'posts.json';
+    document.getElementById('ghToken').value = localStorage.getItem('gh_token') || '';
+  }
+
+  function fetchFromGitHub() {
+    var owner = document.getElementById('ghOwner').value.trim();
+    var repo = document.getElementById('ghRepo').value.trim();
+    var path = document.getElementById('ghPath').value.trim();
+    var token = document.getElementById('ghToken').value.trim();
+
+    if (!owner || !repo || !token) return alert('GitHub 설정 정보(유저명, 저장소, 토큰)를 입력해주세요!');
+
+    var url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
+
+    fetch(url, {
+      headers: { "Authorization": "token " + token }
+    })
+    .then(res => res.json())
+    .then(data => {
+      currentSha = data.sha;
+      var content = decodeURIComponent(atob(data.content).split('').map(function(c) {
+        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+      }).join(''));
+
+      var parsed = JSON.parse(content);
+      postsData = Array.isArray(parsed) ? parsed : (parsed.posts || []);
+      diaryData = parsed.diary || {};
+      renderAll();
+      alert('GitHub에서 최근 데이터를 성공적으로 불러왔습니다!');
+    })
+    .catch(err => {
+      console.error(err);
+      alert('GitHub 데이터를 불러오지 못했습니다. 설정 값을 확인해 주세요.');
+    });
+  }
+
+  function pushToGitHub() {
+    var owner = document.getElementById('ghOwner').value.trim();
+    var repo = document.getElementById('ghRepo').value.trim();
+    var path = document.getElementById('ghPath').value.trim();
+    var token = document.getElementById('ghToken').value.trim();
+
+    if (!token) return alert('GitHub Token을 먼저 입력해 주세요!');
+
+    var finalObj = { posts: postsData, diary: diaryData };
+    var jsonString = JSON.stringify(finalObj, null, 2);
+
+    var encodedContent = btoa(encodeURIComponent(jsonString).replace(/%([0-9A-F]{2})/g,
+      function toSolidBytes(match, p1) {
+        return String.fromCharCode('0x' + p1);
+    }));
+
+    var url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
+    var bodyData = {
+      message: "Update posts.json via web admin panel",
+      content: encodedContent,
+      sha: currentSha
+    };
+
+    fetch(url, {
+      method: "PUT",
+      headers: {
+        "Authorization": "token " + token,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(bodyData)
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.content && data.content.sha) {
+        currentSha = data.content.sha;
+        alert('🎉 GitHub에 성공적으로 업데이트되었습니다! (1~2분 뒤 사이트에 반영됩니다)');
+      } else {
+        alert('저장 실패: ' + (data.message || '알 수 없는 오류'));
+      }
+    })
+    .catch(err => {
+      console.error(err);
+      alert('GitHub 업데이트 요청 실패!');
+    });
+  }
+
+  function setActiveInput(el) { activeInput = el; }
+
+  function loadEmojiPalette() {
+    var palette = document.getElementById('emojiPalette');
+    palette.innerHTML = '';
+    emojiList.forEach((url, idx) => {
+      var item = document.createElement('div');
+      item.className = 'emoji-item';
+      item.innerHTML = `<img src="${url}"><div class="emoji-del" onclick="removeEmoji(event, ${idx})">✕</div>`;
+      item.onclick = () => insertEmojiToInput(url);
+      palette.appendChild(item);
+    });
+  }
+
+  function addEmojiToPalette() {
+    var url = document.getElementById('newEmojiUrl').value.trim();
+    if (!url) return alert('이미지 URL을 입력하세요!');
+    emojiList.push(url);
+    localStorage.setItem('my_emojis', JSON.stringify(emojiList));
+    document.getElementById('newEmojiUrl').value = '';
+    loadEmojiPalette();
+  }
+
+  function removeEmoji(e, idx) {
+    e.stopPropagation();
+    emojiList.splice(idx, 1);
+    localStorage.setItem('my_emojis', JSON.stringify(emojiList));
+    loadEmojiPalette();
+  }
+
+  function insertEmojiToInput(url) {
+    if (!activeInput) return alert('입력창을 먼저 클릭해주세요!');
+    var imgTag = `<img class="text-emoji" src="${url}" />`;
+    var start = activeInput.selectionStart || 0;
+    var end = activeInput.selectionEnd || 0;
+    var text = activeInput.value;
+    activeInput.value = text.substring(0, start) + imgTag + text.substring(end);
+    activeInput.focus();
+  }
+
+  function switchTab(tab) {
+    document.getElementById('postForm').style.display = (tab === 'post') ? 'block' : 'none';
+    document.getElementById('diaryForm').style.display = (tab === 'diary') ? 'block' : 'none';
+    document.getElementById('tabPostBtn').className = 'tab-btn' + (tab === 'post' ? ' active' : '');
+    document.getElementById('tabDiaryBtn').className = 'tab-btn' + (tab === 'diary' ? ' active' : '');
+  }
+
+  function savePost() {
+    var title = document.getElementById('postTitle').value.trim();
+    var content = document.getElementById('postContent').value.trim();
+    var rawCat = document.getElementById('postCategory').value.trim();
+    var url = document.getElementById('postUrl').value.trim();
+
+    if (!title || !content) return alert('제목과 본문은 필수입니다.');
+
+    var categories = rawCat ? rawCat.split(',').map(c => c.trim()) : ["all"];
+    var postObj = { title, content, category: categories };
+    if (url) postObj.url = url;
+
+    if (editingPostIndex >= 0) {
+      postsData[editingPostIndex] = postObj;
+      editingPostIndex = -1;
+    } else {
+      postsData.unshift(postObj);
+    }
+
+    document.getElementById('postTitle').value = '';
+    document.getElementById('postContent').value = '';
+    document.getElementById('postCategory').value = '';
+    document.getElementById('postUrl').value = '';
+    renderAll();
+  }
+
+  function saveDiary() {
+    var dateKey = document.getElementById('diaryDate').value.trim();
+    var title = document.getElementById('diaryTitle').value.trim();
+    var emoji = document.getElementById('diaryEmoji').value.trim();
+    var content = document.getElementById('diaryContent').value.trim();
+
+    if (!dateKey) return alert('날짜는 필수입니다.');
+
+    var diaryObj = { emoji, content };
+    if (title) diaryObj.title = title;
+
+    diaryData[dateKey] = diaryObj;
+    
+    document.getElementById('diaryDate').value = '';
+    document.getElementById('diaryTitle').value = '';
+    document.getElementById('diaryEmoji').value = '';
+    document.getElementById('diaryContent').value = '';
+    renderAll();
+  }
+
+  function deletePost(idx) { postsData.splice(idx, 1); renderAll(); }
+  
+  function editPost(idx) {
+    var p = postsData[idx];
+    document.getElementById('postTitle').value = p.title || '';
+    document.getElementById('postContent').value = p.content || '';
+    document.getElementById('postCategory').value = Array.isArray(p.category) ? p.category.join(', ') : (p.category || '');
+    document.getElementById('postUrl').value = p.url || '';
+    editingPostIndex = idx;
+    switchTab('post');
+  }
+
+  function editDiary(key) {
+    var d = diaryData[key];
+    if (!d) return;
+    
+    document.getElementById('diaryDate').value = key;
+    document.getElementById('diaryTitle').value = d.title || '';
+    document.getElementById('diaryEmoji').value = d.emoji || '';
+    document.getElementById('diaryContent').value = d.content || '';
+    switchTab('diary');
+  }
+
+  function deleteDiary(key) { delete diaryData[key]; renderAll(); }
+
+  function renderAll() {
+    var postListEl = document.getElementById('postList');
+    postListEl.innerHTML = '';
+    document.getElementById('postCount').innerText = postsData.length;
+
+    postsData.forEach((p, idx) => {
+      var row = document.createElement('div');
+      row.className = 'item-row';
+      row.innerHTML = `<div class="item-info"><b>${p.title}</b></div>
+        <div class="item-actions">
+          <button class="btn-sm" onclick="editPost(${idx})">수정</button>
+          <button class="btn-sm btn-danger" onclick="deletePost(${idx})">삭제</button>
+        </div>`;
+      postListEl.appendChild(row);
+    });
+
+    var diaryListEl = document.getElementById('diaryList');
+    diaryListEl.innerHTML = '';
+    var keys = Object.keys(diaryData);
+    document.getElementById('diaryCount').innerText = keys.length;
+
+    keys.forEach(key => {
+      var row = document.createElement('div');
+      row.className = 'item-row';
+      row.innerHTML = `<div class="item-info">${key}</div>
+        <div class="item-actions">
+          <button class="btn-sm" onclick="editDiary('${key}')">수정</button>
+          <button class="btn-sm btn-danger" onclick="deleteDiary('${key}')">삭제</button>
+        </div>`;
+      diaryListEl.appendChild(row);
+    });
+  }
+</script>
+</body>
+</html>
