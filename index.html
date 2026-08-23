@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>상태창 + 본문 통합 자동 변환기 💖💬</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; background: #f0f4f8; max-width: 800px; margin: auto; color: #333; }
+    h2 { color: #555682; text-align: center; }
+    .box { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 15px; }
+    textarea { width: 100%; height: 320px; box-sizing: border-box; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-family: monospace; font-size: 13px; line-height: 1.6; }
+    button { width: 100%; padding: 12px; background: #A8CAE0; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 15px; margin-top: 5px; }
+    button:hover { background: #8bb3cb; }
+    .btn-copy { background: #DBB9CC; margin-top: 10px; }
+    .btn-copy:hover { background: #c29cb3; }
+    .checkbox-container { display: flex; align-items: center; margin: 10px 0; font-weight: bold; color: #555682; cursor: pointer; }
+    .checkbox-container input { width: 18px; height: 18px; margin-right: 8px; cursor: pointer; }
+  </style>
+</head>
+<body>
+
+  <h2>✨ 상태창 + 본문 통합 변환기 ✨</h2>
+
+  <div class="box">
+    <label><b>1. 상태창과 본문 텍스트를 복붙하세요:</b></label>
+    <textarea id="inputText" placeholder="상태창 텍스트와 본문을 붙여넣으세요.&#10;`백틱`을 쓰면 속마음으로, ![이름](url)을 쓰면 이미지로 자동 변환됩니다."></textarea>
+    
+    <label class="checkbox-container">
+      <input type="checkbox" id="useChatMode">
+      📱 대사 부분을 '라인(LINE) 스타일 말풍선'으로 자동 변환하기
+    </label>
+
+    <button onclick="convertAll()">⚡ 최종 통합 HTML 생성하기!</button>
+  </div>
+
+  <div class="box">
+    <label><b>2. 완성된 HTML (복사해서 사용하세요):</b></label>
+    <textarea id="outputText" readonly></textarea>
+    <button class="btn-copy" onclick="copyResult()">📋 코드 복사하기</button>
+  </div>
+
+<script>
+// [기능 추가] 이모지만 쏙 뽑아서 분리용 껍데기(span) 씌우기
+// 최신 이모지(Emoji 14.0/15.0 이상)까지 전부 잡아내는 정규식 적용
+function wrapEmoji(text) {
+  if (!text) return '';
+  // Unicode 15.0 범위 및 결합 문자, 최신 기호까지 포함하는 최신 이모지 정규식
+  const emojiRegex = /(\u00a9|\u00ae|[\u2000-\u3300]|\ud83c[\ud000-\udfff]|\ud83d[\ud000-\udfff]|\ud83e[\ud000-\udfff])/g;
+  return text.replace(emojiRegex, '<span class="emoji-font">$1</span>');
+}
+
+// [기능 추가] 백틱(속마음) 및 마크다운(이미지) 인라인 자동 치환
+function processInlineTags(text) {
+  if (!text) return '';
+  
+  // 백틱(` text `) 속 텍스트를 font-size: 0.88em 이 들어간 span으로 확실하게 변경
+  let processed = text.replace(/`([^`]+)`/g, function(match, p1) {
+    return '<span style="font-size: 0.88em; color: #888888; padding: 2px 5px; border-radius: 4px;">' + p1 + '</span>';
+  });
+  
+  // 이미지 변환
+  processed = processed.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" style="max-width: 100%; height: auto; border-radius: 8px; display: block; margin: 15px 0;">');
+  
+  return processed;
+}
+
+// 1. 단일 상태창 텍스트 -> HTML 변환
+function buildStatusHtml(statusRawText) {
+  let slotId = "T1", datetime = "2014.04.15 09:20", location = "오사카행 신칸센 객실";
+  let chipBlue = "🎖️ 블루윙스 2위", chipGreen = "📈 평판 A+", chipPink = "일정: 🎆 올스타 브레이크";
+  let subInfo1 = "👤 신분: 프런트 스태프", subInfo2 = "💘 타겟: -";
+  let missionText = "노곤한 오후의 거실 회의! 여름방학 밤의 안건을 정하라!";
+  let chatterText = "해수욕 후의 에어컨, 이게 인류의 도달점이지 (⁠´⁠∀⁠｀⁠)⁠♡";
+  let members = [];
+
+  let cleanText = statusRawText
+    .replace(/(─\s*🚩|🚩|MISSION:)/gi, '\nMISSION:')
+    .replace(/(─\s*💬|💬|CHATTER:)/gi, '\nCHATTER:');
+
+  const lines = cleanText.split('\n').map(l => l.trim()).filter(l => l !== '');
+
+  lines.forEach(line => {
+    let cleanLine = line.replace(/🏆/g, '🎖️').replace(/🚩/g, '🍥');
+
+    if (cleanLine.startsWith('[')) {
+      const parts = cleanLine.replace('[', '').replace(']', '').split('|').map(p => p.trim());
+      if (parts[0]) slotId = parts[0];
+      if (parts[1] && parts[2]) datetime = `${parts[1]} ${parts[2]}`;
+      else if (parts[1]) datetime = parts[1];
+      if (parts[4]) {
+        const icon = parts[3] ? parts[3] + ' ' : '';
+        location = (icon + parts[4]).replace('📍', '').replace('→', '&rarr;').trim();
+      } else if (parts[3]) {
+        location = parts[3].replace('📍', '').replace('→', '&rarr;').trim();
+      }
+    } else if (cleanLine.includes('순위:') || cleanLine.includes('평판:') || cleanLine.includes('일정:') || cleanLine.includes('🎖️') || cleanLine.includes('📈')) {
+      const parts = cleanLine.split('|').map(p => p.trim());
+      parts.forEach(part => {
+        if (part.includes('순위') || part.includes('🎖️') || part.includes('블루윙스')) chipBlue = part;
+        else if (part.includes('평판') || part.includes('📈')) chipGreen = part;
+        else if (part.includes('일정')) chipPink = part;
+      });
+    } else if (cleanLine.includes('신분:') || cleanLine.includes('타겟:') || cleanLine.includes('👤') || cleanLine.includes('💘')) {
+      const parts = cleanLine.split('|').map(p => p.trim());
+      parts.forEach(part => {
+        if (part.includes('신분') || part.includes('👤')) subInfo1 = part;
+        else if (part.includes('타겟') || part.includes('💘')) subInfo2 = part;
+      });
+    } else if (cleanLine.toUpperCase().includes('MISSION:')) {
+      missionText = cleanLine.replace(/─/g, '').replace(/🍥/g, '').replace(/MISSION:/gi, '').trim();
+    } else if (cleanLine.toUpperCase().includes('CHATTER:')) {
+      chatterText = cleanLine.replace(/─/g, '').replace('💬', '').replace(/CHATTER:/gi, '').trim();
+    } else if (cleanLine.includes('|') && !cleanLine.startsWith('[')) {
+      const parts = cleanLine.replace(/^─/, '').split('|').map(p => p.trim());
+      if (parts.length >= 2) {
+        const name = parts[0];
+        const status = parts[parts.length - 1];
+        const tags = parts.slice(1, parts.length - 1);
+        if (name && status) {
+          members.push({ name, tags, status });
+        }
+      }
+    }
+  });
+
+  // 상태창 텍스트 이모지 분리 적용
+
+
+// [수정 후] 감정 칩(t)에만 이모지 분리 껍데기 유지!
+  let memberListHtml = members.map(m => {
+    let tagsHtml = m.tags.map(t => `<span class="m-tag">${wrapEmoji(t)}</span>`).join(' ');
+    return `<div class="cps-member-card">
+<div class="member-top"><span class="m-name">${m.name}</span> ${tagsHtml}</div>
+<div class="m-status">${m.status}</div>
+</div>`;
+  }).join('\n');
+
+  return `<div class="custom-pixel-status"><!-- 1. 상단 레트로 칩 헤더 -->
+<div class="cps-header"><span class="cps-slot-id">${slotId}</span> <span class="cps-datetime">${datetime}</span></div>
+<div class="cps-location">📍 ${location} <span class="cps-gender"></span></div>
+<!-- 2. 미니 스태터스 칩 모음 -->
+<div class="cps-chips"><span class="cps-chip blue">${chipBlue}</span> <span class="cps-chip green">${chipGreen}</span> <span class="cps-chip pink">${chipPink}</span></div>
+<div class="cps-sub-info"><span>${subInfo1}</span> <span>${subInfo2}</span></div>
+<!-- 3. 메인 미션 박스 (레트로 골드 픽셀) -->
+<div class="cps-mission-box">
+<div class="mission-tag">🍥 MAIN MISSION</div>
+<div class="mission-text">${missionText}</div>
+</div>
+<hr class="dashed-hr" data-ke-style="style1" /><!-- 4. 캐릭터 슬롯 리스트 -->
+<div class="cps-member-list">
+${memberListHtml}
+</div>
+<hr class="dashed-hr" data-ke-style="style1" /><!-- 5. 하단 코멘트 말풍선 -->
+<div class="cps-chatter-box">💬 ${chatterText}</div>
+</div>
+<div>
+<style>
+.custom-pixel-status {
+  width: 100%; max-width: 320px; margin: 15px auto; padding: 13px 11px;
+  background-image: url('https://i.imgur.com/qMtnWlS.jpeg'); background-color: #ffffff; background-size: cover;
+  border: 1px solid #e5e5e5; box-shadow: 2px 2px 0px #b0b0b0; font-size: 12px; line-height: 1.6; color: #666666; box-sizing: border-box !important; text-shadow: -1px -1px 0 #ffffff, 1px -1px 0 #ffffff, -1px 1px 0 #ffffff, 1px 1px 0 #ffffff;
+}
+.cps-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px; }
+.cps-slot-id { background-color: #FEF7FB; color: #ffffff; font-weight: bold; font-size: 9.5px; padding: 1px 5px; border-radius: 2px; text-shadow: -0.5px -0.5px 0 #888888, 0.5px -0.5px 0 #888888, -0.5px 0.5px 0 #888888, 0.5px 0.5px 0 #888888; }
+.cps-datetime { font-size: 10px; color: #666666; font-weight: bold; }
+.cps-location { font-size: 11px; font-weight: bold; color: #555555; margin-bottom: 6px; }
+.cps-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 4px; }
+.cps-chip { padding: 1px 5px; font-size: 9.5px; border: 1px solid #707070; border-radius: 3px; background-color: #ffffff; }
+.cps-chip.blue { border-color: #A8CAE0; color: #A8CAE0; }
+.cps-chip.green { border-color: #9FCFA0; color: #9FCFA0; }
+.cps-chip.pink { border-color: #DBB9CC; color: #DBB9CC; }
+.cps-sub-info { display: flex; justify-content: space-between; font-size: 9.5px; color: #666666; margin-bottom: 8px; padding: 0 2px; }
+.cps-mission-box { background-color: #FEF7FB; border: 1px solid #F6D9E9; padding: 6px 8px; border-radius: 4px; margin-bottom: 10px; box-shadow: 1px 1px 0px #F2DCE9; }
+.mission-tag { font-size: 9px; font-weight: bold; color: #E8A5CD; }
+.mission-text { font-size: 11px; color: #666666; }
+.cps-member-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; font-size: 11px; }
+.cps-member-card { background: rgba(255, 255, 255, 0.85); border: 1px solid #c0c0c0; padding: 5px 8px; border-radius: 3px; box-shadow: 1px 1px 0px #e0e0e0; }
+.member-top { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; margin-top: 3px; margin-bottom: 3px; }
+.m-name { font-weight: bold; color: #555555; }
+.m-tag { background-color: #F5F9FD; border: 1px solid #d0dbe5; color: #556b82; padding: 0 4px; border-radius: 2px; text-shadow: none; font-size: 9.5px; }
+.m-status { font-size: 11px; color: #666666; padding-left: 2px; margin-bottom: 3px; }
+.cps-chatter-box { background-color: #F7FAFF; border: 1px solid #C4D3ED; padding: 6px 8px; font-size: 11px; color: #3b6282; border-radius: 4px; }
+hr.dashed-hr { border: none; border-top-style: dashed; border-top-width: 0.8px; border-top-color: #e5e5e5; width: 100%; margin-bottom: 10px; }
+</style>
+</div>`;
+}
+
+// 2. 단일 본문 텍스트 배열 -> HTML 변환 (말풍선 모드 스위치 적용)
+function buildBodyHtml(bodyText, useChatMode) {
+  let cleanBodyText = bodyText.replace(/\*/g, '');
+  const lines = cleanBodyText.split('\n').map(l => l.trim()).filter(l => l !== '');
+  
+  let blocks = [];
+  let currentBlock = [];
+
+  lines.forEach(line => {
+    if (line.startsWith('(') || line.startsWith('（')) {
+      if (currentBlock.length > 0) currentBlock.push(line);
+      else blocks.push([line]);
+    } else {
+      if (currentBlock.length > 0) {
+        blocks.push(currentBlock);
+        currentBlock = [];
+      }
+      currentBlock.push(line);
+    }
+  });
+  if (currentBlock.length > 0) blocks.push(currentBlock);
+
+  let resultBody = '';
+  let inChat = false;
+
+  blocks.forEach(block => {
+    let mainText = block[0];
+    
+    // 대사 여부 판단 (채팅방 모드를 켰을 때, 진짜 말풍선으로 만들 조건)
+    let isDialogue = mainText.includes('｜') || mainText.includes('|') || mainText.includes('「') || mainText.includes('『') || (mainText.startsWith('[') && mainText.endsWith(']'));
+    let isChatFormat = false;
+    let name = '';
+    let msg = '';
+
+    if (useChatMode && isDialogue) {
+      if (mainText.startsWith('[') && mainText.endsWith(']')) {
+        isChatFormat = true;
+        name = 'sei';
+        msg = mainText.slice(1, -1);
+      } else if (mainText.includes('｜') || mainText.includes('|')) {
+        let splitIdx = mainText.indexOf('｜');
+        if (splitIdx === -1) splitIdx = mainText.indexOf('|');
+        name = mainText.substring(0, splitIdx).trim();
+        msg = mainText.substring(splitIdx + 1).trim();
+        isChatFormat = true;
+      }
+    }
+
+    // [경우 1] 채팅방 모드가 ON이고, 조건에 맞는 대사일 때 (말풍선 렌더링)
+    if (isChatFormat) {
+      if (!inChat) {
+        resultBody += '<div class="messenger-container">\n';
+        inChat = true;
+      }
+      
+      let msgLines = block.slice(1);
+      let fullMsg = msg;
+      if (msgLines.length > 0) {
+        fullMsg += '<br>' + msgLines.map(l => processInlineTags(l)).join('<br>');
+      }
+      // 대사 안의 백틱, 이미지도 처리
+      fullMsg = processInlineTags(fullMsg);
+      
+      if (name === 'sei') {
+        resultBody += `  <div class="msg-row msg-right">\n    <div class="msg-bubble bubble-sei">${fullMsg}</div>\n  </div>\n`;
+      } else {
+        let colorClass = 'bubble-default';
+        if (name.includes('쿄헤이')) colorClass = 'bubble-kyohei';
+        else if (name.includes('레이')) colorClass = 'bubble-rei';
+        else if (name.includes('이쿠토')) colorClass = 'bubble-ikuto';
+        else if (name.includes('료')) colorClass = 'bubble-ryo';
+        else if (name.includes('타케루')) colorClass = 'bubble-takeru';
+        
+        resultBody += `  <div class="msg-row msg-left">\n    <div class="msg-name">${name}</div>\n    <div class="msg-bubble ${colorClass}">${fullMsg}</div>\n  </div>\n`;
+      }
+    } 
+    // [경우 2] 일반 대사 및 지문 렌더링 (채팅방 모드 OFF 이거나, 말풍선 조건에 안 맞는 텍스트)
+    // [경우 2] 일반 대사 및 지문 렌더링 (채팅방 모드 OFF 이거나, 말풍선 조건에 안 맞는 텍스트)
+    // [경우 2] 일반 대사 및 지문 렌더링 (채팅방 모드 OFF 이거나, 말풍선 조건에 안 맞는 텍스트)
+    else {
+      if (inChat) {
+        resultBody += '</div>\n'; // 채팅 구역 끝
+        inChat = false;
+      }
+      
+      if (isDialogue) {
+        let dialogueLines = block.map(l => {
+          if (l.trim().startsWith('속마음') || l.trim().startsWith('속마음:')) {
+            return `<span style="font-size: 0.88em;">${processInlineTags(l)}</span>`;
+          }
+          return processInlineTags(l);
+        }).join('<br>');
+        resultBody += `<div style="margin-bottom: 22px; line-height: 1.8; word-break: break-word;">${dialogueLines}</div>\n`;
+      } else {
+        let formattedText = processInlineTags(mainText);
+        if (mainText.trim().startsWith('속마음') || mainText.trim().startsWith('속마음:')) {
+          formattedText = `<span style="font-size: 0.88em;">${formattedText}</span>`;
+        }
+        resultBody += `<div style="color: #888888; margin-bottom: 22px; line-height: 1.8; word-break: break-word;">${formattedText}</div>\n`;
+      }
+    }
+  });
+  
+  if (inChat) {
+    resultBody += '</div>\n';
+  }
+  
+  return resultBody;
+}
+
+// 3. 메인 변환 로직
+function convertAll() {
+  let text = document.getElementById('inputText').value;
+  const useChatMode = document.getElementById('useChatMode').checked;
+
+  const statusRegex = /(?:\[\s*T\d[\s\S]*?|🏆[\s\S]*?)CHATTER:[\s\S]*?(?=\n\s*\n|\n[^\n|─👤💘🚩💬🏆📈]+(?:내|가|는|은|이|을|를|에|의|하|있|없|보|듣|말|서|고|며|한|된|간|과|와)|$)/gi;
+
+  let sets = []; 
+  let matches = [];
+  let match;
+
+  while ((match = statusRegex.exec(text)) !== null) {
+    matches.push({
+      statusRaw: match[0],
+      index: match.index,
+      lastIndex: statusRegex.lastIndex
+    });
+  }
+
+  for (let i = 0; i < matches.length; i++) {
+    let currentMatch = matches[i];
+    let statusRaw = currentMatch.statusRaw;
+    
+    let bodyEnd = (i + 1 < matches.length) ? matches[i + 1].index : text.length;
+    let bodyRaw = text.substring(currentMatch.lastIndex, bodyEnd).trim();
+
+    sets.push({
+      status: buildStatusHtml(statusRaw),
+      body: bodyRaw ? buildBodyHtml(bodyRaw, useChatMode) : ''
+    });
+  }
+
+  let prefixBody = '';
+  if (matches.length > 0 && matches[0].index > 0) {
+    let rawPrefix = text.substring(0, matches[0].index).trim();
+    if (rawPrefix) {
+      prefixBody = buildBodyHtml(rawPrefix, useChatMode) + '\n<br><br>\n';
+    }
+  }
+
+  const hrDivider = '<div style="color: #888888; margin-bottom: 22px; line-height: 1.8;"><hr contenteditable="false" data-ke-type="horizontalRule" data-ke-style="style6" /></div>';
+
+  let formattedSets = sets.map(set => {
+    let setHtml = `<br><br>\n${set.status}\n<br><br>`;
+    if (set.body) {
+      setHtml += `\n${set.body}\n<br><br>`;
+    }
+    return setHtml;
+  });
+
+  let resultHtml = prefixBody + formattedSets.join(`\n${hrDivider}\n`);
+
+  // 글로벌 CSS 주입 (이모지 분리 폰트 + 라인 채팅방 스타일)
+  const globalStyle = `
+<style>
+/* 이모지 격리용 CSS (띄어쓰기 붕괴 방지) */
+.emoji-font { 
+  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji", sans-serif !important; 
+  font-weight: normal !important; 
+  margin: 0 1px;
+}
+
+/* 채팅 말풍선 레이아웃 */
+.messenger-container { display: flex; flex-direction: column; background-color: transparent; width: 100%; max-width: 400px; box-sizing: border-box; margin: 0 auto; overflow-x: hidden; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+.msg-row { display: flex; flex-direction: column; max-width: 85%; margin-bottom: 15px; box-sizing: border-box; }
+.msg-left { align-self: flex-start; align-items: flex-start; }
+.msg-right { align-self: flex-end; align-items: flex-end; }
+.msg-name { font-size: 11.5px; color: #333333; margin-bottom: 4px; margin-left: 2px; text-shadow: 0 1px 1px rgba(0,0,0,0.2); }
+.msg-bubble { padding: 8px 12px; border-radius: 14px; font-size: 13px; line-height: 1.8; color: #333; box-shadow: 0 1px 2px rgba(0,0,0,0.1); word-break: break-word; overflow-wrap: break-word; white-space: normal; }
+.msg-left .msg-bubble { border-top-left-radius: 0px; }
+.msg-right .msg-bubble { border-top-right-radius: 0px; }
+
+/* 캐릭터별 지정 색상 */
+.bubble-kyohei { background-color: #EDF9FF; }
+.bubble-rei { background-color: #F2F5FC; }
+.bubble-ikuto { background-color: #F0F0F0; }
+.bubble-ryo { background-color: #EBE6DF; }
+.bubble-takeru { background-color: #FAF9F0; }
+.bubble-sei { background-color: #fff6fe; }
+.bubble-default { background-color: #ffffff; }
+</style>
+`;
+
+  document.getElementById('outputText').value = resultHtml + globalStyle;
+}
+
+function copyResult() {
+  const output = document.getElementById('outputText');
+  output.select();
+  document.execCommand('copy');
+  alert('클립보드에 변환된 통합 HTML이 복사되었습니다! 🎉');
+}
+</script>
+
+</body>
+</html>
