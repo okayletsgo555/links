@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🖍️ 형광펜 팝업 생성기</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: 'Apple SD Gothic Neo', sans-serif; background: #fdf7fa; padding: 20px; color: #555; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+    .container { background: #fff; padding: 25px; border-radius: 12px; border: 1px solid #e7d6dd; box-shadow: 0 4px 10px rgba(180, 160, 170, 0.1); width: 100%; max-width: 400px; }
+    h2 { color: #a47d91; text-align: center; margin-top: 0; font-size: 18px; border-bottom: 2px dashed #e7d6dd; padding-bottom: 15px; }
+    
+    label { display: block; font-size: 12px; font-weight: bold; color: #888; margin: 15px 0 6px; }
+    input[type="text"] { width: 100%; padding: 10px; border: 1px solid #d8b8c8; border-radius: 6px; font-size: 13px; outline: none; transition: 0.2s; }
+    input[type="text"]:focus { border-color: #a47d91; box-shadow: 0 0 0 2px rgba(164, 125, 145, 0.2); }
+    
+    .preview-box { background: #fcf5f8; border: 1px dashed #d8b8c8; border-radius: 8px; padding: 40px 20px; text-align: center; margin-top: 5px; position: relative; font-size: 14px; }
+    .code-box { background: #f4f4f4; border: 1px solid #ddd; padding: 12px; border-radius: 6px; font-size: 12px; font-family: monospace; word-break: break-all; min-height: 50px; color: #d63384; }
+    
+    button { width: 100%; background: #a47d91; color: white; border: none; padding: 12px; border-radius: 6px; font-weight: bold; cursor: pointer; margin-top: 10px; transition: 0.2s; font-size: 13px; }
+    button:hover { background: #8e687b; transform: translateY(-1px); }
+
+    /* 블로그 형광펜 CSS 그대로 이식 (미리보기용) */
+    .hl-comment { background: linear-gradient(140deg, #f0f4f7 0%, #f0f4f7 100%); padding: 1px 3px; border-radius: 2px; cursor: pointer; position: relative; font-weight: bold; color: #555; }
+    .hl-popup { position: absolute; bottom: calc(100% + 10px); left: 50%; transform: translateX(-50%); background: #fdf7fa; border: 1px solid #cdcdcd; border-radius: 8px; padding: 6px 10px; font-size: 11px; color: #555; box-shadow: 2px 2px 0px rgba(0, 0, 0, 0.1); display: none; z-index: 100; font-weight: normal; white-space: pre-wrap; word-break: keep-all; width: max-content; min-width: 100px; max-width: 250px; line-height: 1.5; text-align: center; }
+    .hl-popup::after { content: ""; position: absolute; top: 100%; left: 50%; margin-left: -5px; border-width: 8px; border-style: solid; border-color: #cdcdcd transparent transparent transparent; }
+    .hl-popup::before { content: ""; position: absolute; top: 100%; left: 50%; margin-left: -4px; border-width: 6px; border-style: solid; border-color: #fdf7fa transparent transparent transparent; z-index: 1; }
+    .hl-comment.show-popup .hl-popup { display: block; }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <h2>🖍️ 형광펜 팝업 생성기</h2>
+    
+    <label>1. 형광펜 칠할 글자</label>
+    <input type="text" id="hlText" placeholder="예: 중요한 단어" onkeyup="updatePreview()">
+    
+    <label>2. 팝업에 띄울 설명</label>
+    <input type="text" id="hlPopup" placeholder="예: 이 단어의 뜻은 무엇입니다." onkeyup="updatePreview()">
+    
+    <label>👀 미리보기 (실제로 클릭해 보세요!)</label>
+    <div class="preview-box">
+      이 문장 속에 <span id="previewArea" class="hl-comment" onclick="this.classList.toggle('show-popup')">형광펜<span class="hl-popup">설명</span></span>이 있습니다.
+    </div>
+
+    <label>💻 HTML 코드 (티스토리 HTML 모드에 복붙)</label>
+    <div class="code-box" id="codeArea"></div>
+    <button onclick="copyCode()">📋 코드 복사하기</button>
+  </div>
+
+  <script>
+    function updatePreview() {
+      // 입력값이 없으면 기본 텍스트 표시
+      var t = document.getElementById('hlText').value || '형광펜';
+      var p = document.getElementById('hlPopup').value || '설명';
+      
+      // 🌟 티스토리에서 자바스크립트 충돌 없이 혼자서도 작동하도록 onclick 이벤트를 태그 자체에 내장했습니다.
+      var code = `<span class="hl-comment" onclick="this.classList.toggle('show-popup')">${t}<span class="hl-popup">${p}</span></span>`;
+      
+      // 미리보기 영역 업데이트
+      document.getElementById('previewArea').outerHTML = `<span id="previewArea" class="hl-comment" onclick="this.classList.toggle('show-popup')">${t}<span class="hl-popup">${p}</span></span>`;
+      
+      // 코드를 텍스트로 안전하게 렌더링
+      document.getElementById('codeArea').innerText = code;
+    }
+
+    function copyCode() {
+      var code = document.getElementById('codeArea').innerText;
+      if(!code) return alert('복사할 코드가 없습니다.');
+      navigator.clipboard.writeText(code).then(function() {
+        alert('✨ 코드가 복사되었습니다!\n티스토리 글쓰기에서 [기본모드 -> HTML]로 바꾼 뒤 원하는 위치에 붙여넣기 하세요.');
+      });
+    }
+    
+    // 처음 켰을 때 초기 세팅
+    updatePreview();
+  </script>
+
+</body>
+</html>
